@@ -16,7 +16,15 @@ class ServMaskZip
 		$this->centralDirectory = fopen(".{$fileName}", 'a+b');
 	}
 
-	public function addFile($fileName, $localName = null) {
+	public function add($fileName, $localName = null) {
+		if (is_dir($fileName)) {
+			return $this->addDirectory($fileName, $localName);
+		}
+
+		return $this->addFile($fileName, $localName);
+	}
+
+	protected function addFile($fileName, $localName = null) {
 		// Get CRC-32 checksum
 		//$crc32 = hash_file('crc32b', $fileName); // @TODO: Research for other mechanism because this is not in the PHP core ?
 		$crc32 = crc32(file_get_contents($fileName));
@@ -30,66 +38,39 @@ class ServMaskZip
 		// Get file name length
 		$fileNameLength = strlen($fileName);
 
-		// Local file header signature (4 bytes)
-		$localFileHeader = "\x50\x4b\x03\x04";
+		// Local File Header
+		$localFileHeader = array(
+			pack('V', 0x04034b50),      // Local file header signature (4 bytes)
+			pack('v', 20),              // Version needed to extract (2 bytes)
+			pack('v', 0),               // General purpose bit flag (2 bytes)
+			pack('v', 0),               // Compression method (2 bytes)
+			pack('v', 0),               // Last mod file time (2 bytes)
+			pack('v', 0),               // Last mod file date (2 bytes)
+			pack('V', $crc32),          // CRC-32 (4 bytes)
+			pack('V', $fileSize),       // Compressed size (4 bytes)
+			pack('V', $fileSize),       // Uncompressed size (4 bytes)
+			pack('v', $fileNameLength), // File name length (2 bytes)
+			pack('v', 0),               // Extra field length (2 bytes)
+			$fileName,                  // File name (variable size)
+		);
 
-		// Version needed to extract (2 bytes)
-		$localFileHeader .= "\x0a\x00";
+		// Write local file header
+		if (fwrite($this->zipFile, implode(null, $localFileHeader)) === false) {
+			throw new Exception('Unable to write local file header in the zip file.');
+		}
 
-		// General purpose bit flag (2 bytes)
-		$localFileHeader .= "\x00\x00";
-
-		// Compression method (2 bytes)
-		$localFileHeader .= "\x00\x00";
-
-		// Last mod file time (2 bytes)
-		$localFileHeader .= "\x00\x00";
-
-		// Last mod file date (2 bytes)
-		$localFileHeader .= "\x00\x00";
-
-		// CRC-32 (4 bytes)
-		$localFileHeader .= pack('V', $crc32);
-
-		// Compressed size (4 bytes)
-		$localFileHeader .= pack('V', $fileSize);
-
-		// Uncompressed size (4 bytes)
-		$localFileHeader .= pack('V', $fileSize);
-
-		// File name length (2 bytes)
-		$localFileHeader .= pack('v', $fileNameLength);
-
-		// Extra field length (2 bytes)
-		$localFileHeader .= pack('v', 0);
-
-		// File name (variable size)
-		$localFileHeader .= $fileName;
-
-		// File data (variable size)
-		$localFileHeader .= file_get_contents($fileName); // @TODO: Do it in chunks
-
-		// Extra field (variable size)
-		$localFileHeader .= null;
-
-		// This descriptor MUST exist if bit 3 of the general purpose bit flag is set (optional)
-		//
-		// Data descriptor - CRC-32 (4 bytes)
-		// $localFileHeader .= pack('V', $crc32);
-		//
-		// Data descriptor - Compressed size (4 bytes)
-		// $localFileHeader .= pack('V', $fileSize);
-		//
-		// Data descriptor - Uncompressed size (4 bytes)
-		// $localFileHeader .= pack('V', $fileSize);
-
-		// Write to file
-		if (false === fwrite($this->zipFile, $localFileHeader)) {
-			throw new Exception('Unable to write in the zip file.');
+		// @TODO: Do it in chunks
+		// Write file data (variable size)
+		if (fwrite($this->zipFile, file_get_contents($fileName)) === false) {
+			throw new Exception('Unable to write file data in the zip file.');
 		}
 
 		// Add central directory
-		$this->addToCentralDirectory($fileName, $fileNameLength, $fileSize, $fileOffset, $crc32);
+		$this->addToCentralDirectory($fileName, $fileNameLength, $fileSize, $fileOffset, $crc32, 0x00000000);
+	}
+
+	protected function addDirectory($fileName, $localName = null) {
+
 	}
 
 	public function flush() {
@@ -104,111 +85,61 @@ class ServMaskZip
 		fclose($this->zipFile);
 	}
 
-	protected function addToCentralDirectory($fileName, $fileNameLength, $fileSize, $fileOffset, $crc32) {
-		// Central file header signature (4 bytes)
-		$centralDirectory = "\x50\x4b\x01\x02";
+	protected function addToCentralDirectory($fileName, $fileNameLength, $fileSize, $fileOffset, $crc32, $external) {
+		// Central directory structure
+		$centralDirectory = array(
+			pack('V', 0x02014b50),      // Central file header signature (4 bytes)
+			pack('v', 0),               // Version made by (2 bytes)
+			pack('v', 20),              // Version needed to extract (2 bytes)
+			pack('v', 0),               // General purpose bit flag (2 bytes)
+			pack('v', 0),               // Compression method (2 bytes)
+			pack('v', 0),               // Last mod file time (2 bytes)
+			pack('v', 0),               // Last mod file date (2 bytes)
+			pack('V', $crc32),          // CRC-32 (4 bytes)
+			pack('V', $fileSize),       // Compressed size (4 bytes)
+			pack('V', $fileSize),       // Uncompressed size (4 bytes)
+			pack('v', $fileNameLength), // File name length (2 bytes)
+			pack('v', 0),               // Extra field length (2 bytes)
+			pack('v', 0),               // File comment length (2 bytes)
+			pack('v', 0),               // Disk number start (2 bytes)
+			pack('v', 0),               // Internal file attributes (2 bytes)
+			pack('V', $external),       // External file attributes (4 bytes)
+			pack('V', $fileOffset),     // Relative offset of local header (4 bytes)
+			$fileName,                  // File name (variable size)
+		);
 
-		// Version made by (2 bytes)
-		$centralDirectory .= "\x00\x00";
-
-		// Version needed to extract (2 bytes)
-		$centralDirectory .= "\x0a\x00";
-
-		// General purpose bit flag (2 bytes)
-		$centralDirectory .= "\x00\x00";
-
-		// Compression method (2 bytes)
-		$centralDirectory .= "\x00\x00";
-
-        // Last mod file time (2 bytes)
-        $centralDirectory .= "\x00\x00";
-
-        // Last mod file date (2 bytes)
-        $centralDirectory .= "\x00\x00";
-
-		// CRC-32 (4 bytes)
-		$centralDirectory .= pack('V', $crc32);
-
-		// Compressed size (4 bytes)
-		$centralDirectory .= pack('V', $fileSize);
-
-		// Uncompressed size (4 bytes)
-		$centralDirectory .= pack('V', $fileSize);
-
-		// File name length (2 bytes)
-		$centralDirectory .= pack('v', $fileNameLength);
-
-		// Extra field length (2 bytes)
-		$centralDirectory .= pack('v', 0);
-
-		// File comment length (2 bytes)
-		$centralDirectory .= pack('v', 0);
-
-		// Disk number start (2 bytes)
-		$centralDirectory .= pack('v', 0);
-
-		// Internal file attributes (2 bytes)
-		$centralDirectory .= pack('v', 0);
-
-		// External file attributes (4 bytes)
-		$centralDirectory .= pack('V', 32);
-
-		// Relative offset of local header (4 bytes)
-		$centralDirectory .= pack('V', $fileOffset);
-
-		// File name (variable size)
-		$centralDirectory .= $fileName;
-
-        // Extra field (variable size)
-        $centralDirectory .= null;
-
-        // File comment (variable size)
-        $centralDirectory .= null;
-
-		// Write to file
-		if (false === fwrite($this->centralDirectory, $centralDirectory)) {
+		// Write central directory to file
+		if (fwrite($this->centralDirectory, implode(null, $centralDirectory)) === false) {
 			throw new Exception('Unable to write in the central directory file.');
 		}
 	}
 
 	protected function endOfCentralDirectory() {
-		// End of central dir signature (4 bytes)
-		$centralDirectory = "\x50\x4b\x05\x06";
+		$numberOfEntries = 1;
+		$centralDirectorySize = filesize(stream_get_meta_data($this->centralDirectory)['uri']);
+		$centralDirectoryOffset = filesize(stream_get_meta_data($this->zipFile)['uri']);
 
-		// Number of this disk (2 bytes)
-		$centralDirectory .= "\x00\x00";
+		// End of central directory structure
+		$endOfCentralDirectory = array(
+			pack('V', 0x06054b50),              // End of central dir signature (4 bytes)
+			pack('v', 0),                       // Number of this disk (2 bytes)
+			pack('v', 0),                       // Number of the disk with the start of the central directory (2 bytes)
+			pack('v', $numberOfEntries),        // Total number of entries in the central directory on this disk (2 bytes)
+			pack('v', $numberOfEntries),        // Total number of entries in the central directory (2 bytes)
+			pack('V', $centralDirectorySize),   // Size of the central directory (4 bytes) // @TODO: fix size
+			pack('V', $centralDirectoryOffset), // Offset of start of central directory with respect to the starting disk number (4 bytes)
+			pack('v', 0),                       // .ZIP file comment length (2 bytes)
+		);
 
-		// Number of the disk with the start of the central directory (2 bytes)
-		$centralDirectory .= "\x00\x00";
-
-		// Total number of entries in the central directory on this disk (2 bytes)
-		$centralDirectory .= pack('v', 1); // @TODO: 1 file
-
-		// Total number of entries in the central directory (2 bytes)
-		$centralDirectory .= pack('v', 1); // @TODO: 1 file
-
-		// Size of the central directory (4 bytes)
-		$centralDirectory .= pack('V', filesize(stream_get_meta_data($this->centralDirectory)['uri'])); // @TODO: fix size
-
-		// Offset of start of central directory with respect to the starting disk number (4 bytes)
-		$centralDirectory .= pack('V', filesize(stream_get_meta_data($this->zipFile)['uri'])); // @TODO: fix size
-
-		// .ZIP file comment length (2 bytes)
-		$centralDirectory .= "\x00\x00";
-
-		// .ZIP file comment (variable size)
-		$centralDirectory .= null;
-
-		// Write to file
-		if (false === fwrite($this->centralDirectory, $centralDirectory)) {
+		// Write end of central directory to file
+		if (fwrite($this->centralDirectory, implode(null, $endOfCentralDirectory)) === false) {
 			throw new Exception('Unable to write in the central directory file.');
 		}
-
-		rewind($this->centralDirectory);
 	}
 
 	protected function copyCenetralDirectoryToZipFile() {
 		$this->endOfCentralDirectory();
+		rewind($this->centralDirectory);
 		fwrite($this->zipFile, fread($this->centralDirectory, filesize(stream_get_meta_data($this->centralDirectory)['uri'])));
 	}
 }
