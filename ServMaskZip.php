@@ -126,7 +126,7 @@ class ServMaskZip
 			pack('v', 0),                       // Number of the disk with the start of the central directory (2 bytes)
 			pack('v', $numberOfEntries),        // Total number of entries in the central directory on this disk (2 bytes)
 			pack('v', $numberOfEntries),        // Total number of entries in the central directory (2 bytes)
-			pack('V', $centralDirectorySize),   // Size of the central directory (4 bytes) // @TODO: fix size
+			pack('V', $centralDirectorySize),   // Size of the central directory (4 bytes)
 			pack('V', $centralDirectoryOffset), // Offset of start of central directory with respect to the starting disk number (4 bytes)
 			pack('v', 0),                       // .ZIP file comment length (2 bytes)
 		);

@@ -25,61 +25,61 @@ class ServMaskZipExtractor
 	}
 
 	public function readCentralDirectory() {
-		$endStructure = $this->readEndOfCentralDirectory();
+		$endOfCentralDirectory = $this->readEndOfCentralDirectory();
 
 		// Set pointer to the central directory
-		if (@fseek($this->zipFileHandler, $endStructure['offset']) === -1) {
+		if (@fseek($this->zipFileHandler, $endOfCentralDirectory['offset']) === -1) {
 			throw new Exception('Unable to seek in zip file.');
 		}
 
 		$entries = array();
 
 		// Loop over zip entries
-		for ($i = 0; $i < $endStructure['entries']; $i++) {
+		for ($i = 0; $i < $endOfCentralDirectory['entries']; $i++) {
 
 			// Read next 46 bytes
 			$data = @fread($this->zipFileHandler, 46);
 
 			// Central directory structure
-			$structure = @unpack('Vid/vversion/vversionExtracted/vflag/vcompression/vmtime/vmdate/Vcrc/VcompressedSize/Vsize/vfileNameLength/vextraLength/vcommentLength/vdisk/vinternal/Vexternal/Voffset', $data);
-			if ($structure === false) {
+			$centralDirectory = @unpack('Vid/vversion/vversionExtracted/vflag/vcompression/vmtime/vmdate/Vcrc/VcompressedSize/Vsize/vfileNameLength/vextraLength/vcommentLength/vdisk/vinternal/Vexternal/Voffset', $data);
+			if ($centralDirectory === false) {
 				throw new Exception('Unable to unpack zip file.');
 			}
 
 			// Verify signature
-			if ($structure['id'] !== 0x02014b50) {
+			if ($centralDirectory['id'] !== 0x02014b50) {
 				throw new Exception('Invalid signature of zip file. Make sure zip file is created by All in One WP Migration.');
 			}
 
 			// Verify compression
-			if ($structure['compression'] !== 0) {
+			if ($centralDirectory['compression'] !== 0) {
 				throw new Exception('Unsupported compression method. Make sure zip file is created by All in One WP Migration.');
 			}
 
 			// Verify general purpuse big flag
-			if (($structure['flag'] & 1) === 1) {
+			if (($centralDirectory['flag'] & 1) === 1) {
 				throw new Exception('Unsupported encryption method. Make sure zip file is created by All in One WP Migration.');
 			}
 
 			// Get file name
-			if (($fileNameLength = $structure['fileNameLength'])) {
-				$structure['fileName'] = fread($this->zipFileHandler, $fileNameLength);
+			if (($fileNameLength = $centralDirectory['fileNameLength'])) {
+				$centralDirectory['fileName'] = fread($this->zipFileHandler, $fileNameLength);
 			} else {
-				$structure['fileName'] = null;
+				$centralDirectory['fileName'] = null;
 			}
 
 			// Get extra
-			if (($extraLength = $structure['extraLength'])) {
-				$structure['extra'] = fread($this->zipFileHandler, $extraLength);
+			if (($extraLength = $centralDirectory['extraLength'])) {
+				$centralDirectory['extra'] = fread($this->zipFileHandler, $extraLength);
 			} else {
-				$structure['extra'] = null;
+				$centralDirectory['extra'] = null;
 			}
 
 			// Get comment
-			if (($commentLength = $structure['commentLength'])) {
-				$structure['comment'] = fread($this->zipFileHandler, $commentLength);
+			if (($commentLength = $centralDirectory['commentLength'])) {
+				$centralDirectory['comment'] = fread($this->zipFileHandler, $commentLength);
 			} else {
-				$structure['comment'] = null;
+				$centralDirectory['comment'] = null;
 			}
 
 			// Get compression
@@ -90,7 +90,7 @@ class ServMaskZipExtractor
 			//   $p_header['external'] = 0x00000010;
 			// }
 
-			$entries[] = $structure;
+			$entries[] = $centralDirectory;
 		}
 
 		return $entries;
@@ -106,19 +106,16 @@ class ServMaskZipExtractor
 		$data = @fread($this->zipFileHandler, 22);
 
 		// End of central dir structure
-		$endStructure = @unpack('Vid/vdisk/vdiskStart/vdiskEntries/ventries/Vsize/Voffset/vcommentLength', $data);
-		if ($endStructure === false) {
+		$endOfCentralDirectory = @unpack('Vid/vdisk/vdiskStart/vdiskEntries/ventries/Vsize/Voffset/vcommentLength', $data);
+		if ($endOfCentralDirectory === false) {
 			throw new Exception('Unable to unpack zip file.');
 		}
 
 		// Verify signature
-		if ($endStructure['id'] !== 0x06054b50) {
+		if ($endOfCentralDirectory['id'] !== 0x06054b50) {
 			throw new Exception('Invalid signature of zip file. Make sure zip file is created by All in One WP Migration.');
 		}
 
-		// Set pointer to the beginning of the file
-		@rewind($this->zipFileHandler);
-
-		return $endStructure;
+		return $endOfCentralDirectory;
 	}
 }
