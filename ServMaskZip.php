@@ -13,7 +13,7 @@ class ServMaskZip
 		$this->zipFile = fopen($fileName, 'a+b');
 
 		// Central Directory
-		$this->centralDirectory = fopen("{$fileName}.cd", 'a+b');
+		$this->centralDirectory = fopen(".{$fileName}", 'a+b');
 	}
 
 	public function addFile($fileName, $localName = null) {
@@ -92,9 +92,11 @@ class ServMaskZip
 		$this->addToCentralDirectory($fileName, $fileNameLength, $fileSize, $fileOffset, $crc32);
 	}
 
-	public function close() {
+	public function flush() {
 		$this->copyCenetralDirectoryToZipFile();
+	}
 
+	public function close() {
 		// Close central directory
 		fclose($this->centralDirectory);
 
