@@ -72,14 +72,16 @@ class ServMaskZip
 		// Extra field (variable size)
 		$localFileHeader .= null;
 
+		// This descriptor MUST exist if bit 3 of the general purpose bit flag is set (optional)
+		//
 		// Data descriptor - CRC-32 (4 bytes)
-		$localFileHeader .= pack('V', $crc32);
-
+		// $localFileHeader .= pack('V', $crc32);
+		//
 		// Data descriptor - Compressed size (4 bytes)
-		$localFileHeader .= pack('V', $fileSize);
-
+		// $localFileHeader .= pack('V', $fileSize);
+		//
 		// Data descriptor - Uncompressed size (4 bytes)
-		$localFileHeader .= pack('V', $fileSize);
+		// $localFileHeader .= pack('V', $fileSize);
 
 		// Write to file
 		if (false === fwrite($this->zipFile, $localFileHeader)) {
@@ -169,13 +171,13 @@ class ServMaskZip
 
 	protected function endOfCentralDirectory() {
 		// End of central dir signature (4 bytes)
-		$centralDirectory = "\x50\x4b\x05\x06\x00\x00\x00\x00";
+		$centralDirectory = "\x50\x4b\x05\x06";
 
 		// Number of this disk (2 bytes)
-		//$centralDirectory .= pack('v', 1);
+		$centralDirectory .= "\x00\x00";
 
 		// Number of the disk with the start of the central directory (2 bytes)
-		//$centralDirectory .= pack('v', 1);
+		$centralDirectory .= "\x00\x00";
 
 		// Total number of entries in the central directory on this disk (2 bytes)
 		$centralDirectory .= pack('v', 1); // @TODO: 1 file
@@ -188,7 +190,6 @@ class ServMaskZip
 
 		// Offset of start of central directory with respect to the starting disk number (4 bytes)
 		$centralDirectory .= pack('V', filesize(stream_get_meta_data($this->zipFile)['uri'])); // @TODO: fix size
-
 
 		// .ZIP file comment length (2 bytes)
 		$centralDirectory .= "\x00\x00";
