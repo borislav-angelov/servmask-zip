@@ -2,7 +2,7 @@
 
 // Little-endian byte order
 
-class ServMaskZip
+class ServMaskZipCompressor
 {
 	protected $zipFileName = null;
 
@@ -29,11 +29,11 @@ class ServMaskZip
 	}
 
 	public function add($fileName, $localName = null) {
-		if (is_dir($fileName)) {
+		if (is_file($fileName)) {
+			return $this->addFile($fileName, $localName);
+		} else if (is_dir($fileName)) {
 			return $this->addDirectory($fileName, $localName);
 		}
-
-		return $this->addFile($fileName, $localName);
 	}
 
 	protected function addFile($fileName, $localName = null) {
@@ -151,7 +151,7 @@ class ServMaskZip
 
 	protected function endOfCentralDirectory() {
 		// Get number of entries
-		$numberOfEntries = 1;
+		$numberOfEntries = 2;
 
 		// Get central directory size
 		$centralDirectorySize = filesize($this->centralDirectoryFileName);
