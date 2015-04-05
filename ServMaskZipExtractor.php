@@ -82,13 +82,27 @@ class ServMaskZipExtractor
 				$centralDirectory['comment'] = null;
 			}
 
-			// Get compression
+			// Create directory
+			if ((($centralDirectory['external'] & 0x00000010) === 0x00000010) || (substr($centralDirectory['fileName'], -1) === '/')) {
+				if (!is_dir($centralDirectory['fileName'])) {
+					if (@mkdir($centralDirectory['fileName'], 0755, true) === false) {
+						throw new Exception(
+							sprintf('Unable to create directory: %s', $centralDirectory['fileName'])
+						);
+					}
+				}
+			} else {
+				$directory = dirname($centralDirectory['fileName']);
+				if (!is_dir($directory)) {
+					if (@mkdir($centralDirectory['fileName'], 0755, true) === false) {
+						throw new Exception(
+							sprintf('Unable to create directory: %s', $centralDirectory['fileName'])
+						);
+					}
+				}
 
-			// // ----- Look if it is a directory
-			// if (substr($p_header['filename'], -1) == '/') {
-			//   //$p_header['external'] = 0x41FF0010;
-			//   $p_header['external'] = 0x00000010;
-			// }
+				// Write data
+			}
 
 			$entries[] = $centralDirectory;
 		}
