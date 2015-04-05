@@ -101,10 +101,62 @@ class ServMaskZipExtractor
 					}
 				}
 
-				// Write data
+				// Position of the next file in central file directory
+				$nextCentralDirectory = ftell($this->zipFileHandler);
+
+				// Seek to beginning of file header
+				if (@fseek($this->zipFileHandler, $centralDirectory['offset']) === -1) {
+					throw new Exception('Unable to seek in zip file.');
+				}
+
+				// Read next 30 bytes
+				$data = @fread($this->zipFileHandler, 30);
+
+				// Local file header
+				$localFileHeader = @unpack('Vid/vversion/vflag/vcompression/vmtime/vmdate/Vcrc/VcompressedSize/Vsize/vfileNameLength/vextraLength', $data);
+				if ($localFileHeader === false) {
+					throw new Exception('Unable to unpack zip file.');
+				}
+
+				// Verify signature
+				if ($localFileHeader['id'] !== 0x04034b50) {
+					throw new Exception('Invalid signature of zip file. Make sure zip file is created by All in One WP Migration.');
+				}
+
+				// Verify compression
+				if ($localFileHeader['compression'] !== 0) {
+					throw new Exception('Unsupported compression method. Make sure zip file is created by All in One WP Migration.');
+				}
+
+				// Verify general purpuse big flag
+				if (($localFileHeader['flag'] & 1) === 1) {
+					throw new Exception('Unsupported encryption method. Make sure zip file is created by All in One WP Migration.');
+				}
+
+				// Get file name
+				if (($fileNameLength = $localFileHeader['fileNameLength'])) {
+					$localFileHeader['fileName'] = fread($this->zipFileHandler, $fileNameLength);
+				} else {
+					$localFileHeader['fileName'] = null;
+				}
+
+				// Get extra
+				if (($extraLength = $localFileHeader['extraLength'])) {
+					$localFileHeader['extra'] = fread($this->zipFileHandler, $extraLength);
+				} else {
+					$localFileHeader['extra'] = null;
+				}
+
+				// Get file data
+				$fileData = fread($this->zipFileHandler, $localFileHeader['size']); // Think for central
+
+				// Write file data
+				$fileDataHandler = fopen($localFileHeader['fileName'], 'wb');
+				fwrite($fileDataHandler, $fileData);
+				fclose($fileDataHandler);
 			}
 
-			$entries[] = $centralDirectory;
+			//$entries[] = $centralDirectory;
 		}
 
 		return $entries;
