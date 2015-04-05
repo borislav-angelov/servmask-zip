@@ -38,7 +38,7 @@ class ServMaskZip
 		// Get file name length
 		$fileNameLength = strlen($fileName);
 
-		// Local File Header
+		// Local file header
 		$localFileHeader = array(
 			pack('V', 0x04034b50),      // Local file header signature (4 bytes)
 			pack('v', 20),              // Version needed to extract (2 bytes)
