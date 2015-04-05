@@ -27,21 +27,22 @@ class ServMaskZipExtractor
 	public function readCentralDirectory() {
 		$endOfCentralDirectory = $this->readEndOfCentralDirectory();
 
-		// Set pointer to the central directory
-		if (@fseek($this->zipFileHandler, $endOfCentralDirectory['offset']) === -1) {
-			throw new Exception('Unable to seek in zip file.');
-		}
-
-		$entries = array();
+		// Get offset of end of central directory
+		$offsetCentralDirectory = $endOfCentralDirectory['offset'];
 
 		// Loop over zip entries
 		for ($i = 0; $i < $endOfCentralDirectory['entries']; $i++) {
 
+			// Set pointer to the central directory
+			if (@fseek($this->zipFileHandler, $endOfCentralDirectory['offset']) === -1) {
+				throw new Exception('Unable to seek in zip file.');
+			}
+
 			// Read next 46 bytes
-			$data = @fread($this->zipFileHandler, 46);
+			$centralDirectoryData = @fread($this->zipFileHandler, 46);
 
 			// Central directory structure
-			$centralDirectory = @unpack('Vid/vversion/vversionExtracted/vflag/vcompression/vmtime/vmdate/Vcrc/VcompressedSize/Vsize/vfileNameLength/vextraLength/vcommentLength/vdisk/vinternal/Vexternal/Voffset', $data);
+			$centralDirectory = @unpack('Vid/vversion/vversionExtracted/vflag/vcompression/vmtime/vmdate/Vcrc/VcompressedSize/Vsize/vfileNameLength/vextraLength/vcommentLength/vdisk/vinternal/Vexternal/Voffset', $centralDirectoryData);
 			if ($centralDirectory === false) {
 				throw new Exception('Unable to unpack zip file.');
 			}
@@ -102,7 +103,7 @@ class ServMaskZipExtractor
 				}
 
 				// Position of the next file in central file directory
-				$nextCentralDirectory = ftell($this->zipFileHandler);
+				$offsetCentralDirectory = ftell($this->zipFileHandler);
 
 				// Seek to beginning of file header
 				if (@fseek($this->zipFileHandler, $centralDirectory['offset']) === -1) {
@@ -110,10 +111,10 @@ class ServMaskZipExtractor
 				}
 
 				// Read next 30 bytes
-				$data = @fread($this->zipFileHandler, 30);
+				$localFileHeaderData = @fread($this->zipFileHandler, 30);
 
 				// Local file header
-				$localFileHeader = @unpack('Vid/vversion/vflag/vcompression/vmtime/vmdate/Vcrc/VcompressedSize/Vsize/vfileNameLength/vextraLength', $data);
+				$localFileHeader = @unpack('Vid/vversion/vflag/vcompression/vmtime/vmdate/Vcrc/VcompressedSize/Vsize/vfileNameLength/vextraLength', $localFileHeaderData);
 				if ($localFileHeader === false) {
 					throw new Exception('Unable to unpack zip file.');
 				}
@@ -155,11 +156,7 @@ class ServMaskZipExtractor
 				fwrite($fileDataHandler, $fileData);
 				fclose($fileDataHandler);
 			}
-
-			//$entries[] = $centralDirectory;
 		}
-
-		return $entries;
 	}
 
 	public function readEndOfCentralDirectory() {
@@ -169,10 +166,10 @@ class ServMaskZipExtractor
 		}
 
 		// Read next 22 bytes
-		$data = @fread($this->zipFileHandler, 22);
+		$endOfCentralDirectoryData = @fread($this->zipFileHandler, 22);
 
 		// End of central dir structure
-		$endOfCentralDirectory = @unpack('Vid/vdisk/vdiskStart/vdiskEntries/ventries/Vsize/Voffset/vcommentLength', $data);
+		$endOfCentralDirectory = @unpack('Vid/vdisk/vdiskStart/vdiskEntries/ventries/Vsize/Voffset/vcommentLength', $endOfCentralDirectoryData);
 		if ($endOfCentralDirectory === false) {
 			throw new Exception('Unable to unpack zip file.');
 		}
