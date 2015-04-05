@@ -4,16 +4,28 @@
 
 class ServMaskZip
 {
-	protected $zipFile = null;
+	protected $zipFileName = null;
 
-	protected $centralDirectory = null;
+	protected $zipFileHandler = null;
+
+	protected $centralDirectoryFileName = null;
+
+	protected $centralDirectoryFileHandler = null;
 
 	public function open($fileName, $flag = 'ab') {
-		// Zip File
-		$this->zipFile = fopen($fileName, 'a+b');
+		$this->zipFileName = trim($fileName);
+		$this->centralDirectoryFileName = sprintf('%sx', $this->zipFileName);
 
-		// Central Directory
-		$this->centralDirectory = fopen(".{$fileName}", 'a+b');
+		// Zip file handler
+		if (($this->zipFileHandler = fopen($this->zipFileName, 'a+b')) === false) {
+			throw new Exception('Unable to open zip file.');
+		}
+
+		// Central directory file handler
+		if (($this->centralDirectoryFileHandler = fopen($this->centralDirectoryFileName, 'a+b')) === false) {
+			throw new Exception('Unable to open zip file.');
+		}
+
 	}
 
 	public function add($fileName, $localName = null) {
@@ -33,7 +45,7 @@ class ServMaskZip
 		$fileSize = filesize($fileName);
 
 		// Get file offset
-		$fileOffset = ftell($this->zipFile);
+		$fileOffset = filesize($this->zipFileName);
 
 		// Get file name length
 		$fileNameLength = strlen($fileName);
@@ -55,14 +67,14 @@ class ServMaskZip
 		);
 
 		// Write local file header
-		if (fwrite($this->zipFile, implode(null, $localFileHeader)) === false) {
-			throw new Exception('Unable to write local file header in the zip file.');
+		if (@fwrite($this->zipFileHandler, implode(null, $localFileHeader)) === false) {
+			throw new Exception('Unable to write local file header in zip file.');
 		}
 
 		// @TODO: Do it in chunks
 		// Write file data (variable size)
-		if (fwrite($this->zipFile, file_get_contents($fileName)) === false) {
-			throw new Exception('Unable to write file data in the zip file.');
+		if (@fwrite($this->zipFileHandler, file_get_contents($fileName)) === false) {
+			throw new Exception('Unable to write file data in zip file.');
 		}
 
 		// Add central directory
@@ -74,15 +86,38 @@ class ServMaskZip
 	}
 
 	public function flush() {
-		$this->copyCenetralDirectoryToZipFile();
+		// Add end of central directory
+		$this->endOfCentralDirectory();
+
+		// Get central direectory file size
+		$centralDirectorySize = filesize($this->centralDirectoryFileName);
+
+		// Seek to beginning of central directory file
+		if (@rewind($this->centralDirectoryFileHandler) === false) {
+			throw new Exception('Unable to seek in central directory file.');
+		}
+
+		// Write central directory file in zip file
+		if (@fwrite($this->zipFileHandler, fread($this->centralDirectoryFileHandler, $centralDirectorySize)) === false) {
+			throw new Exception('Unable to write central directory file in zip file');
+		}
+
+		// Close central directory file
+		@fclose($this->centralDirectoryFileHandler);
+
+		// Close zip file
+		@fclose($this->zipFileHandler);
+
+		// Unlink central directory file
+		@unlink($this->centralDirectoryFileName);
 	}
 
 	public function close() {
-		// Close central directory
-		fclose($this->centralDirectory);
+		// Close central directory file
+		@fclose($this->centralDirectoryFileHandler);
 
 		// Close zip file
-		fclose($this->zipFile);
+		@fclose($this->zipFileHandler);
 	}
 
 	protected function addToCentralDirectory($fileName, $fileNameLength, $fileSize, $fileOffset, $crc32, $external) {
@@ -109,15 +144,20 @@ class ServMaskZip
 		);
 
 		// Write central directory to file
-		if (fwrite($this->centralDirectory, implode(null, $centralDirectory)) === false) {
-			throw new Exception('Unable to write in the central directory file.');
+		if (@fwrite($this->centralDirectoryFileHandler, implode(null, $centralDirectory)) === false) {
+			throw new Exception('Unable to write in central directory file.');
 		}
 	}
 
 	protected function endOfCentralDirectory() {
+		// Get number of entries
 		$numberOfEntries = 1;
-		$centralDirectorySize = filesize(stream_get_meta_data($this->centralDirectory)['uri']);
-		$centralDirectoryOffset = filesize(stream_get_meta_data($this->zipFile)['uri']);
+
+		// Get central directory size
+		$centralDirectorySize = filesize($this->centralDirectoryFileName);
+
+		// Get central directory offset
+		$centralDirectoryOffset = filesize($this->zipFileName);
 
 		// End of central directory structure
 		$endOfCentralDirectory = array(
@@ -128,18 +168,12 @@ class ServMaskZip
 			pack('v', $numberOfEntries),        // Total number of entries in the central directory (2 bytes)
 			pack('V', $centralDirectorySize),   // Size of the central directory (4 bytes)
 			pack('V', $centralDirectoryOffset), // Offset of start of central directory with respect to the starting disk number (4 bytes)
-			pack('v', 0),                       // .ZIP file comment length (2 bytes)
+			pack('v', 0),                       // ZIP file comment length (2 bytes)
 		);
 
 		// Write end of central directory to file
-		if (fwrite($this->centralDirectory, implode(null, $endOfCentralDirectory)) === false) {
-			throw new Exception('Unable to write in the central directory file.');
+		if (@fwrite($this->centralDirectoryFileHandler, implode(null, $endOfCentralDirectory)) === false) {
+			throw new Exception('Unable to write in central directory file.');
 		}
-	}
-
-	protected function copyCenetralDirectoryToZipFile() {
-		$this->endOfCentralDirectory();
-		rewind($this->centralDirectory);
-		fwrite($this->zipFile, fread($this->centralDirectory, filesize(stream_get_meta_data($this->centralDirectory)['uri'])));
 	}
 }

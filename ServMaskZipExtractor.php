@@ -11,15 +11,15 @@ class ServMaskZipExtractor
 	protected $zipFileSize = null;
 
 	public function open($fileName) {
-		$this->zipFileName = $fileName;
+		$this->zipFileName = trim($fileName);
 
 		// Zip File Handler
-		if (($this->zipFileHandler = fopen($fileName, 'rb')) === false) {
+		if (($this->zipFileHandler = fopen($this->zipFileName, 'rb')) === false) {
 			throw new Exception('Unable to open zip file.');
 		}
 
 		// Zip File Size
-		if (($this->zipFileSize = filesize($fileName)) === false) {
+		if (($this->zipFileSize = filesize($this->zipFileName)) === false) {
 			throw new Exception('Unable to get zip file size.');
 		}
 	}
@@ -149,10 +149,10 @@ class ServMaskZipExtractor
 				}
 
 				// Get file data
-				$fileData = fread($this->zipFileHandler, $localFileHeader['size']); // Think for central
+				$fileData = fread($this->zipFileHandler, $centralDirectory['size']);
 
 				// Write file data
-				$fileDataHandler = fopen($localFileHeader['fileName'], 'wb');
+				$fileDataHandler = fopen($centralDirectory['fileName'], 'wb');
 				fwrite($fileDataHandler, $fileData);
 				fclose($fileDataHandler);
 			}
