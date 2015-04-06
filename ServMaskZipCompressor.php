@@ -47,6 +47,15 @@ class ServMaskZipCompressor
 		// Get file offset
 		$fileOffset = filesize($this->zipFileName);
 
+		// Sanitize file name
+		if ($localName) {
+			$fileName = $this->sanitizeFileName($localName);
+		} else {
+			$fileName = $this->sanitizeFileName($fileName);
+		}
+
+		var_dump($fileName);
+
 		// Get file name length
 		$fileNameLength = strlen($fileName);
 
@@ -87,7 +96,7 @@ class ServMaskZipCompressor
 
 	public function flush() {
 		// Add end of central directory
-		$this->endOfCentralDirectory();
+		$this->addEndOfCentralDirectory();
 
 		// Get central direectory file size
 		$centralDirectorySize = filesize($this->centralDirectoryFileName);
@@ -149,7 +158,7 @@ class ServMaskZipCompressor
 		}
 	}
 
-	protected function endOfCentralDirectory() {
+	protected function addEndOfCentralDirectory() {
 		// Get number of entries
 		$numberOfEntries = 2;
 
@@ -175,5 +184,15 @@ class ServMaskZipCompressor
 		if (@fwrite($this->centralDirectoryFileHandler, implode(null, $endOfCentralDirectory)) === false) {
 			throw new Exception('Unable to write in central directory file.');
 		}
+	}
+
+	/**
+	 * Sanitize file name
+	 *
+	 * @param  string $fileName File name
+	 * @return string
+	 */
+	protected function sanitizeFileName($fileName) {
+		return preg_replace('/(\\+)|(\/+)/', '/', $fileName);
 	}
 }
