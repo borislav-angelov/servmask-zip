@@ -38,25 +38,21 @@ class ServMaskZipArchiver
 
 	protected function addFile($fileName, $localName = null) {
 		// Get CRC-32 checksum
-		$crc32 = hash_file('crc32b', $fileName); // @TODO: Research for other mechanism because this is not in the PHP core ?
-		//$fileHandler = fopen($fileName, 'rb');
-		//$crc32 = crc32(fread($fileHandler, filesize($fileName)));
-		//fclose($fileHandler);
+		//$crc32 = hash_file('crc32b', $fileName); // @TODO: Research for other mechanism because this is not in the PHP core ?
+		$crc32 = crc32(file_get_contents($fileName));
+
+		// Set local name and sanitize it
+		if (empty($localName)) {
+			$localName = $this->sanitizeFileName($fileName);
+		} else {
+			$localName = $this->sanitizeFileName($localName);
+		}
 
 		// Get file size
 		$fileSize = filesize($fileName);
 
 		// Get file offset
 		$fileOffset = filesize($this->zipFileName);
-
-		// Sanitize file name
-		if ($localName) {
-			$fileName = $this->sanitizeFileName($localName);
-		} else {
-			$fileName = $this->sanitizeFileName($fileName);
-		}
-
-		var_dump($fileName);
 
 		// Get file name length
 		$fileNameLength = strlen($fileName);
@@ -83,8 +79,14 @@ class ServMaskZipArchiver
 		}
 
 		// @TODO: Do it in chunks
+
+		// Get file data
+		$fileDataHandler = fopen($fileName, 'rb');
+		$fileData = fread($fileDataHandler, filesize($fileName));
+		fclose($fileDataHandler);
+
 		// Write file data (variable size)
-		if (@fwrite($this->zipFileHandler, file_get_contents($fileName)) === false) {
+		if (@fwrite($this->zipFileHandler, $fileData) === false) {
 			throw new Exception('Unable to write file data in zip file.');
 		}
 
@@ -162,7 +164,7 @@ class ServMaskZipArchiver
 
 	protected function addEndOfCentralDirectory() {
 		// Get number of entries
-		$numberOfEntries = 2;
+		$numberOfEntries = 1;
 
 		// Get central directory size
 		$centralDirectorySize = filesize($this->centralDirectoryFileName);
