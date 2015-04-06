@@ -32,13 +32,13 @@
 
 // // exit;
 
-require_once 'ServMaskZipCompressor.php';
+require_once 'ServMaskZipArchiver.php';
 require_once 'ServMaskZipExtractor.php';
 
 @unlink('test.zip');
 @unlink('test.zipx');
 
-$zip = new ServMaskZipCompressor;
+$zip = new ServMaskZipArchiver;
 
 $zip->open('test.zip');
 

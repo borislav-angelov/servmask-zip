@@ -2,7 +2,7 @@
 
 // Little-endian byte order
 
-class ServMaskZipCompressor
+class ServMaskZipArchiver
 {
 	protected $zipFileName = null;
 
