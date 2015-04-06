@@ -38,8 +38,10 @@ class ServMaskZipCompressor
 
 	protected function addFile($fileName, $localName = null) {
 		// Get CRC-32 checksum
-		//$crc32 = hash_file('crc32b', $fileName); // @TODO: Research for other mechanism because this is not in the PHP core ?
-		$crc32 = crc32(file_get_contents($fileName));
+		$crc32 = hash_file('crc32b', $fileName); // @TODO: Research for other mechanism because this is not in the PHP core ?
+		//$fileHandler = fopen($fileName, 'rb');
+		//$crc32 = crc32(fread($fileHandler, filesize($fileName)));
+		//fclose($fileHandler);
 
 		// Get file size
 		$fileSize = filesize($fileName);
